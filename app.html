@@ -5,28 +5,55 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>와우탭 앱 다운로드</title>
     <script>
-        // 접속 기기를 판별해 해당 스토어로 즉시 이동한다.
-        // head에 두어 화면이 그려지기 전에 이동시킨다 (깜빡임 방지).
+        // 제품 패키지 QR의 착지 페이지. 접속 기기를 판별해 해당 스토어로 보낸다.
+        //
         // ⚠️ QR 스캐너 앱의 내장 브라우저는 User-Agent가 제각각이라 판별이 빗나갈 수 있다.
         //    그래서 본문에 수동 버튼 2개를 항상 표시한다 — 이 스크립트가 실패해도 다운로드가 가능해야 한다.
         (function () {
-            // 스토어 주소는 이 두 상수가 단일 출처다. 본문 버튼도 아래에서 같은 값을 채운다.
+            // ── 스토어 주소 — 이 두 값이 단일 출처다 (본문 버튼도 같은 값을 쓴다) ──
             var APPSTORE = 'https://apps.apple.com/app/id6795469163?ct=package_qr';
             var PLAY = 'https://play.google.com/store/apps/details?id=com.wowtap.app&referrer=utm_source%3Dpackage_qr%26utm_medium%3Dprint';
+
+            var GA_ID = 'G-MYKQYF0CMW';   // GA4 웹 스트림 (Firebase 프로젝트 wowtap-e8fc6 의 속성)
+            var WAIT_MS = 1000;           // 아래 "이동 지연" 설명 참조
 
             var ua = navigator.userAgent || '';
             // iPadOS 13+ 는 UA가 Macintosh로 잡히므로 터치 지원 여부로 함께 판별한다.
             var isIOS = /iPad|iPhone|iPod/.test(ua) ||
                         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
             var isAndroid = /Android/.test(ua);
+            var device = isIOS ? 'ios' : (isAndroid ? 'android' : 'other');
+            var target = isIOS ? APPSTORE : (isAndroid ? PLAY : null);   // null = PC 등, 이동하지 않음
 
-            // replace를 쓰면 뒤로가기 시 이 페이지로 되돌아오지 않는다.
-            if (isIOS) {
-                location.replace(APPSTORE);
-            } else if (isAndroid) {
-                location.replace(PLAY);
-            }
-            // 그 외(PC 등)는 이동하지 않고 아래 선택 화면을 그대로 보여준다.
+            window.__wowtap = { device: device };
+
+            // ── GA4 로드 ──
+            window.dataLayer = window.dataLayer || [];
+            function gtag() { dataLayer.push(arguments); }
+            window.gtag = gtag;
+            gtag('js', new Date());
+            gtag('config', GA_ID);
+
+            var s = document.createElement('script');
+            s.async = true;
+            s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
+            document.head.appendChild(s);
+
+            // ── 도착 이벤트 전송 후 이동 ──
+            // 🔴 이동을 지연시키는 이유: gtag.js는 외부 서버에서 로드되므로,
+            //    로드되기 전에 페이지를 떠나면 이벤트가 **하나도 기록되지 않는다**.
+            //    전송이 끝나면 콜백으로 즉시 이동하고, 늦어지면 WAIT_MS 후 그냥 이동한다
+            //    (수집보다 사용자를 스토어로 보내는 것이 우선).
+            function go() { if (target) location.replace(target); }
+            var moved = false;
+            function once() { if (!moved) { moved = true; go(); } }
+
+            gtag('event', 'qr_landing', {
+                device_type: device,
+                store: isIOS ? 'app_store' : (isAndroid ? 'google_play' : 'none'),
+                event_callback: target ? once : undefined
+            });
+            if (target) setTimeout(once, WAIT_MS);
         })();
     </script>
     <style>
@@ -81,8 +108,10 @@
     </p>
 
     <!-- 자동 이동이 실패해도 다운로드가 가능하도록 두 스토어를 항상 노출한다 -->
-    <a class="btn primary" href="https://apps.apple.com/app/id6795469163?ct=package_qr">App Store &middot; iPhone / iPad</a>
-    <a class="btn" href="https://play.google.com/store/apps/details?id=com.wowtap.app&amp;referrer=utm_source%3Dpackage_qr%26utm_medium%3Dprint">Google Play &middot; Android</a>
+    <a class="btn primary" data-store="app_store"
+       href="https://apps.apple.com/app/id6795469163?ct=package_qr">App Store &middot; iPhone / iPad</a>
+    <a class="btn" data-store="google_play"
+       href="https://play.google.com/store/apps/details?id=com.wowtap.app&amp;referrer=utm_source%3Dpackage_qr%26utm_medium%3Dprint">Google Play &middot; Android</a>
 
     <p class="hint">자동으로 이동하지 않으면 위 버튼을 눌러주세요.</p>
 
@@ -92,5 +121,18 @@
         <a href="./support.html">고객지원</a>
     </footer>
 </div>
+<script>
+    // 수동 버튼 클릭 기록 — 자동 이동이 빗나간 경우가 얼마나 되는지 파악하는 지표다.
+    // 이동을 막지 않는다. gtag는 sendBeacon으로 보내므로 페이지를 떠나도 전송된다.
+    document.addEventListener('click', function (e) {
+        var a = e.target.closest ? e.target.closest('a[data-store]') : null;
+        if (a && window.gtag) {
+            window.gtag('event', 'store_click', {
+                store: a.getAttribute('data-store'),
+                device_type: (window.__wowtap || {}).device || 'unknown'
+            });
+        }
+    });
+</script>
 </body>
 </html>
