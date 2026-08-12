@@ -10,12 +10,30 @@
         // ⚠️ QR 스캐너 앱의 내장 브라우저는 User-Agent가 제각각이라 판별이 빗나갈 수 있다.
         //    그래서 본문에 수동 버튼 2개를 항상 표시한다 — 이 스크립트가 실패해도 다운로드가 가능해야 한다.
         (function () {
-            // ── 스토어 주소 — 이 두 값이 단일 출처다 (본문 버튼도 같은 값을 쓴다) ──
-            var APPSTORE = 'https://apps.apple.com/app/id6795469163?ct=package_qr';
-            var PLAY = 'https://play.google.com/store/apps/details?id=com.wowtap.app&referrer=utm_source%3Dpackage_qr%26utm_medium%3Dprint';
+            // ── 스토어 주소 — 이 두 값이 단일 출처다 (본문 버튼 href도 아래에서 이 값으로 덮어쓴다) ──
+
+            // 🔴 Apple 캠페인 링크는 pt·ct·mt 3개가 모두 있어야 App Store Connect 앱 분석에 집계된다.
+            //    pt(Provider ID)가 비어 있으면 링크는 정상 동작하지만 캠페인 집계는 되지 않는다.
+            //    pt는 따로 찾는 값이 아니라 캠페인을 만들면 자동 발급된다:
+            //    App Store Connect → 앱 선택 → Analytics → 획득 > 캠페인 → [+] → 캠페인 이름 입력
+            //    → pt·ct가 들어간 링크가 생성된다. 그 pt 값(숫자)을 아래에 넣는다.
+            //    ⚠️ 캠페인은 "최초 다운로드 5건 + 24시간" 을 넘겨야 대시보드에 나타난다.
+            //    아래 3개 값은 App Store Connect가 생성한 캠페인 링크에서 그대로 가져온 것이다 (2026-08-12).
+            var APPLE_PT = '129186162';               // Provider ID
+            var APPLE_CT = 'package_qr';              // 캠페인 토큰 (최대 30자) — 캠페인 이름과 일치해야 한다
+
+            // 경로가 /app/apple-store/id... 인 것은 Apple이 생성한 형식을 그대로 따른 것이다.
+            var APPSTORE = 'https://apps.apple.com/app/apple-store/id6795469163'
+                         + '?pt=' + APPLE_PT + '&ct=' + APPLE_CT + '&mt=8';
+
+            // Play는 referrer 안에 UTM을 실어 보낸다. utm_campaign은 인쇄 차수 구분용
+            // (2차 인쇄분이 나오면 v6 등으로 올려 유입을 분리한다).
+            var PLAY = 'https://play.google.com/store/apps/details?id=com.wowtap.app'
+                     + '&referrer=utm_source%3Dpackage_qr%26utm_medium%3Dprint%26utm_campaign%3Dpackage_v5';
 
             var GA_ID = 'G-MYKQYF0CMW';   // GA4 웹 스트림 (Firebase 프로젝트 wowtap-e8fc6 의 속성)
             var WAIT_MS = 1000;           // 아래 "이동 지연" 설명 참조
+            var SEEN_KEY = 'wowtap_qr_redirected';
 
             var ua = navigator.userAgent || '';
             // iPadOS 13+ 는 UA가 Macintosh로 잡히므로 터치 지원 여부로 함께 판별한다.
@@ -25,7 +43,16 @@
             var device = isIOS ? 'ios' : (isAndroid ? 'android' : 'other');
             var target = isIOS ? APPSTORE : (isAndroid ? PLAY : null);   // null = PC 등, 이동하지 않음
 
-            window.__wowtap = { device: device };
+            window.__wowtap = { device: device, appstore: APPSTORE, play: PLAY };
+
+            // ── 재실행 방지 ──
+            // 🔴 왜 필요한가: 스토어 앱으로 넘어갈 때 웹 이동은 "취소"되므로 이 문서가 탭에 그대로 남는다.
+            //    iOS Safari는 탭을 닫지 않으므로, 메모리 부족으로 탭이 폐기됐다가 사용자가 다시 열면
+            //    페이지가 재로드되어 ① qr_landing 이 중복 전송되고 ② 스토어로 또 튕겨 나간다.
+            //    sessionStorage는 같은 탭 안에서 재로드를 넘어 유지되므로 이 플래그로 한 번만 처리한다.
+            //    (QR을 다시 찍으면 새 탭 = 새 세션이라 정상적으로 다시 집계된다.)
+            var already = false;
+            try { already = sessionStorage.getItem(SEEN_KEY) === '1'; } catch (e) {}
 
             // ── GA4 로드 ──
             window.dataLayer = window.dataLayer || [];
@@ -39,12 +66,18 @@
             s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
             document.head.appendChild(s);
 
+            // 이미 처리된 세션이면 집계도 이동도 하지 않는다 — 버튼만 있는 페이지로 남긴다.
+            if (already) return;
+
             // ── 도착 이벤트 전송 후 이동 ──
             // 🔴 이동을 지연시키는 이유: gtag.js는 외부 서버에서 로드되므로,
             //    로드되기 전에 페이지를 떠나면 이벤트가 **하나도 기록되지 않는다**.
             //    전송이 끝나면 콜백으로 즉시 이동하고, 늦어지면 WAIT_MS 후 그냥 이동한다
             //    (수집보다 사용자를 스토어로 보내는 것이 우선).
-            function go() { if (target) location.replace(target); }
+            function go() {
+                try { sessionStorage.setItem(SEEN_KEY, '1'); } catch (e) {}
+                location.replace(target);
+            }
             var moved = false;
             function once() { if (!moved) { moved = true; go(); } }
 
@@ -79,19 +112,37 @@
         h1 { font-size: 1.25rem; margin: 0 0 8px; }
         .lead { color: #555; margin: 0 0 32px; font-size: 0.95rem; }
         .lead .en { color: #999; font-size: 0.85rem; }
+
+        /* ── 스토어 버튼 ── */
         .btn {
-            display: block;
-            padding: 15px 20px;
-            margin: 12px 0;
-            border-radius: 12px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 1rem;
-            border: 1.5px solid #2680EB;
-            color: #2680EB;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            width: 100%;
+            min-height: 78px;
+            padding: 16px 20px;
+            margin: 14px 0;
+            border: 1.5px solid #dfe3e8;
+            border-radius: 16px;
             background: #fff;
+            text-decoration: none;
+            color: #111;
+            text-align: left;
+            box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+            transition: transform .08s ease, box-shadow .15s ease, border-color .15s ease;
         }
-        .btn.primary { background: #2680EB; color: #fff; }
+        .btn:active { transform: scale(.985); box-shadow: none; border-color: #c9cfd6; }
+        .btn svg { display: block; pointer-events: none; }   /* 클릭 대상은 항상 <a> */
+
+        .marks { display: flex; align-items: center; gap: 9px; flex: 0 0 auto; }
+        .mk-brand { width: 25px; height: 25px; }
+        .mk-store { width: 42px; height: 42px; }
+        .sep { width: 1px; height: 34px; background: #e6e9ed; flex: 0 0 auto; }
+
+        .label { display: flex; flex-direction: column; justify-content: center; line-height: 1.25; }
+        .l1 { font-size: 1.18rem; font-weight: 700; letter-spacing: -0.01em; }
+        .l2 { font-size: 0.82rem; color: #6b7280; margin-top: 3px; }
+
         .hint { color: #888; font-size: 0.85rem; margin-top: 24px; }
         footer { margin-top: 44px; color: #aaa; font-size: 0.8rem; }
         footer a { color: #888; }
@@ -107,11 +158,65 @@
         <span class="en">Get the app for your device</span>
     </p>
 
-    <!-- 자동 이동이 실패해도 다운로드가 가능하도록 두 스토어를 항상 노출한다 -->
-    <a class="btn primary" data-store="app_store"
-       href="https://apps.apple.com/app/id6795469163?ct=package_qr">App Store &middot; iPhone / iPad</a>
-    <a class="btn" data-store="google_play"
-       href="https://play.google.com/store/apps/details?id=com.wowtap.app&amp;referrer=utm_source%3Dpackage_qr%26utm_medium%3Dprint">Google Play &middot; Android</a>
+    <!-- 자동 이동이 실패해도 다운로드가 가능하도록 두 스토어를 항상 노출한다.
+         href는 JS 없이도 동작하는 기본 주소이고, 스크립트가 살아 있으면 추적 파라미터가 붙은
+         주소로 아래에서 덮어쓴다 (주소의 단일 출처는 <head>의 APPSTORE / PLAY 상수). -->
+    <a class="btn" data-store="app_store" href="https://apps.apple.com/app/apple-store/id6795469163">
+        <span class="marks">
+            <!-- Apple 로고 -->
+            <svg class="mk-brand" viewBox="0 0 24 24" fill="#111" aria-hidden="true">
+                <path d="M16.37 1.43c0 1.14-.42 2.2-1.25 3.03-1 1-2.19 1.58-3.29 1.49-.02-.14-.03-.28-.03-.42 0-1.1.47-2.24 1.3-3.05.42-.42.95-.77 1.57-1.05.62-.27 1.21-.42 1.77-.44 0 .15.01.29.01.44z"/>
+                <path d="M20.75 17.02c-.32.74-.7 1.42-1.14 2.05-.6.86-1.09 1.45-1.47 1.78-.59.54-1.22.82-1.9.84-.49 0-1.07-.14-1.76-.42-.69-.28-1.32-.42-1.9-.42-.6 0-1.25.14-1.95.42-.7.28-1.26.43-1.69.45-.65.03-1.3-.26-1.94-.86-.41-.36-.92-.98-1.53-1.85-.65-.93-1.19-2-1.61-3.23-.45-1.32-.68-2.6-.68-3.84 0-1.42.31-2.64.92-3.67.48-.82 1.12-1.47 1.92-1.94.8-.48 1.67-.73 2.6-.74.52 0 1.19.16 2.03.48.83.32 1.37.48 1.6.48.18 0 .78-.19 1.79-.56.96-.35 1.77-.49 2.43-.44 1.8.15 3.15.86 4.05 2.14-1.61.98-2.4 2.34-2.39 4.09.02 1.36.51 2.5 1.48 3.4.44.42.93.74 1.47.97-.12.34-.24.66-.38.97z"/>
+            </svg>
+            <span class="sep"></span>
+            <!-- App Store 앱 아이콘 -->
+            <svg class="mk-store" viewBox="0 0 48 48" aria-hidden="true">
+                <defs>
+                    <linearGradient id="asGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="#1AC8FB"/>
+                        <stop offset="1" stop-color="#1A6EF3"/>
+                    </linearGradient>
+                </defs>
+                <rect width="48" height="48" rx="11" fill="url(#asGrad)"/>
+                <g fill="none" stroke="#fff" stroke-width="2.9" stroke-linecap="round">
+                    <path d="M17.6 33.4 27.5 16.2"/>
+                    <path d="M30.4 33.4 20.5 16.2"/>
+                    <path d="M13.8 27.6h20.4"/>
+                </g>
+            </svg>
+        </span>
+        <span class="label">
+            <span class="l1">App Store</span>
+            <span class="l2">iPhone &middot; iPad</span>
+        </span>
+    </a>
+
+    <a class="btn" data-store="google_play" href="https://play.google.com/store/apps/details?id=com.wowtap.app">
+        <span class="marks">
+            <!-- Android 로봇 (Google Play는 삼성 전용이 아니라 모든 안드로이드 기기의 스토어다) -->
+            <svg class="mk-brand" viewBox="0 0 48 48" aria-hidden="true">
+                <path d="M12 22a12 12 0 0 1 24 0z" fill="#3DDC84"/>
+                <g stroke="#3DDC84" stroke-width="1.8" stroke-linecap="round">
+                    <path d="M15.4 11.9 12.7 7.3"/>
+                    <path d="M32.6 11.9 35.3 7.3"/>
+                </g>
+                <circle cx="19.4" cy="16.6" r="1.5" fill="#fff"/>
+                <circle cx="28.6" cy="16.6" r="1.5" fill="#fff"/>
+            </svg>
+            <span class="sep"></span>
+            <!-- Google Play 로고 -->
+            <svg class="mk-store" viewBox="0 0 512 512" aria-hidden="true">
+                <path d="M60 20 300 256 60 492z" fill="#00A0FF"/>
+                <path d="M60 20 380 204 300 256z" fill="#00E676"/>
+                <path d="M60 492 380 308 300 256z" fill="#FF3A44"/>
+                <path d="M380 204 470 256 380 308 300 256z" fill="#FFCE00"/>
+            </svg>
+        </span>
+        <span class="label">
+            <span class="l1">Google Play</span>
+            <span class="l2">Android</span>
+        </span>
+    </a>
 
     <p class="hint">자동으로 이동하지 않으면 위 버튼을 눌러주세요.</p>
 
@@ -122,17 +227,28 @@
     </footer>
 </div>
 <script>
-    // 수동 버튼 클릭 기록 — 자동 이동이 빗나간 경우가 얼마나 되는지 파악하는 지표다.
-    // 이동을 막지 않는다. gtag는 sendBeacon으로 보내므로 페이지를 떠나도 전송된다.
-    document.addEventListener('click', function (e) {
-        var a = e.target.closest ? e.target.closest('a[data-store]') : null;
-        if (a && window.gtag) {
-            window.gtag('event', 'store_click', {
-                store: a.getAttribute('data-store'),
-                device_type: (window.__wowtap || {}).device || 'unknown'
-            });
-        }
-    });
+    (function () {
+        var w = window.__wowtap || {};
+
+        // 버튼 href를 추적 파라미터가 붙은 주소로 교체한다.
+        // (HTML의 href는 스크립트가 죽었을 때를 위한 기본 주소 — 이동은 되고 집계만 안 된다)
+        var ios = document.querySelector('a[data-store="app_store"]');
+        var and = document.querySelector('a[data-store="google_play"]');
+        if (ios && w.appstore) { ios.href = w.appstore; }
+        if (and && w.play) { and.href = w.play; }
+
+        // 수동 버튼 클릭 기록 — 자동 이동이 빗나간 경우가 얼마나 되는지 파악하는 지표다.
+        // 이동을 막지 않는다. gtag는 sendBeacon으로 보내므로 페이지를 떠나도 전송된다.
+        document.addEventListener('click', function (e) {
+            var a = e.target.closest ? e.target.closest('a[data-store]') : null;
+            if (a && window.gtag) {
+                window.gtag('event', 'store_click', {
+                    store: a.getAttribute('data-store'),
+                    device_type: w.device || 'unknown'
+                });
+            }
+        });
+    })();
 </script>
 </body>
 </html>
