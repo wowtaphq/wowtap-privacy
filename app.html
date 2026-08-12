@@ -117,7 +117,9 @@
            바탕을 채워 "누를 수 있는 것"으로 읽히게 한다(테두리만으로는 안 읽혔다).
            연한 그레이 계열 — 흰 배경 위에서 한 단계 낮은 면으로 떠 보이게 한다.
            흰 바탕+테두리만 있던 최초 버전과 달리, 채움·테두리·그림자·위쪽 흰 하이라이트를
-           함께 줘서 "눌리는 면"으로 읽히게 했다. */
+           함께 줘서 "눌리는 면"으로 읽히게 했다.
+           색은 R=G=B 인 중립 그레이 — 파랑기가 섞인 슬레이트 계열은 브랜드 컬러와
+           미묘하게 부딪혀 "약간 푸르다"고 읽혔다. */
         .btn {
             display: flex;
             align-items: center;
@@ -126,18 +128,18 @@
             min-height: 94px;
             padding: 18px 22px;
             margin: 16px 0;
-            border: 1px solid #D5DCE5;
+            border: 1px solid #DCDCDC;
             border-radius: 18px;
-            background: linear-gradient(180deg, #F7F9FB 0%, #E9EDF3 100%);
+            background: linear-gradient(180deg, #FAFAFA 0%, #ECECEC 100%);
             text-decoration: none;
-            color: #101828;
+            color: #1A1A1A;
             text-align: left;
             box-shadow: 0 1px 1px rgba(16, 24, 40, 0.04), 0 6px 16px rgba(16, 24, 40, 0.06), inset 0 1px 0 #fff;
             transition: transform .08s ease, background .15s ease, box-shadow .15s ease;
         }
         .btn:active {
             transform: scale(.98);
-            background: linear-gradient(180deg, #E9EDF3 0%, #DCE2EA 100%);
+            background: linear-gradient(180deg, #EFEFEF 0%, #DFDFDF 100%);
             box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.6);
         }
         .btn svg { display: block; pointer-events: none; }   /* 클릭 대상은 항상 <a> */
@@ -157,11 +159,11 @@
         .mk-android { width: 30px; height: 20px; }           /* 실제 30.0 × 19.2 */
         .mk-store   { width: 54px; height: 54px; }           /* App Store 아이콘 (정사각) */
         .mk-play    { width: 50px; height: 54px; }           /* Play 로고는 세로가 더 길다 (68:74) */
-        .sep { width: 1px; height: 42px; background: #D5DCE5; flex: 0 0 auto; }
+        .sep { width: 1px; height: 42px; background: #D6D6D6; flex: 0 0 auto; }
 
         .label { display: flex; flex-direction: column; justify-content: center; line-height: 1.25; }
-        .l1 { font-size: 1.32rem; font-weight: 700; letter-spacing: -0.01em; color: #101828; }
-        .l2 { font-size: 0.86rem; color: #667085; margin-top: 4px; }
+        .l1 { font-size: 1.32rem; font-weight: 700; letter-spacing: -0.01em; color: #1A1A1A; }
+        .l2 { font-size: 0.86rem; color: #6E6E6E; margin-top: 4px; }
 
         .hint { color: #888; font-size: 0.85rem; margin-top: 24px; }
         footer { margin-top: 44px; color: #aaa; font-size: 0.8rem; }
@@ -199,12 +201,15 @@
                  'A' = 삼각형을 이루는 막대 3개 (사선 2 + 가로 1), 굵기 7.6 · 라운드 캡.
                  획 위치·굵기는 참고 이미지와 픽셀 대조해 불일치 최소값으로 맞췄다(98.08%).
 
-                 🔴 막대는 불투명 흰색이 아니라 반투명 흰색(α=0.69)이다.
-                    그래서 막대끼리 겹치는 곳이 더 밝게 뜨고, 세 막대가 각각 분리돼 보인다.
-                    불투명으로 그리면 셋이 한 덩어리로 뭉쳐 보인다(2차 작도의 문제).
-                    실측 근거: 단일 막대 밝기 +218.6 / 2겹 +285.6 → 비 1.3065 → α = 2−1.3065.
-                    stroke-opacity 는 상속 속성이라 g 에 걸어도 각 path 가 따로 합성된다.
-                    반면 g 의 opacity 로 주면 셋이 먼저 합쳐진 뒤 한 번에 투명해져 겹침이 사라진다. -->
+                 🔴 막대는 불투명 흰색이 아니라 **반투명이고, 막대마다 길이 방향 투명도 그라디언트**가 있다.
+                    겹치는 곳이 밝게 뜨고 투명도가 자리마다 달라서, 세 막대가 서로 엉켜
+                    삼각형을 이루는 것처럼 보인다. 불투명 단색으로 그리면 한 덩어리로 뭉친다.
+                    실측(단일 막대만 덮는 픽셀을 길이 t 에 대해 선형회귀, 잔차 σ≈0.05):
+                      좌사선 α 0.50→0.88 · 우사선 0.62→0.72 · 가로바 0.70→0.55
+                    막대 색은 순백 유지 — 역산하면 #F7FFFF 가 나오지만 R 차이 8(3%)로
+                    썸네일 리샘플링 오차 범위이고 눈에 보이지 않는다.
+                    ⚠️ 투명도는 각 path 의 stroke 에 그라디언트로 준다. g 의 opacity 로 주면
+                       셋이 먼저 합쳐진 뒤 한 번에 투명해져 겹침이 사라진다. -->
             <svg class="mk-store" viewBox="0 0 78 78" aria-hidden="true">
                 <defs>
                     <!-- 막대에서 떨어진 '순수 바탕' 3500px 을 세로 위치에 대해 최소제곱 피팅한 값 -->
@@ -212,12 +217,25 @@
                         <stop offset="0" stop-color="#5ABAF5"/>
                         <stop offset="1" stop-color="#2E5CE6"/>
                     </linearGradient>
+                    <!-- 좌표를 막대 양끝에 그대로 맞춰야 하므로 userSpaceOnUse -->
+                    <linearGradient id="asBarL" gradientUnits="userSpaceOnUse" x1="19.5" y1="58" x2="43.5" y2="17.5">
+                        <stop offset="0" stop-color="#fff" stop-opacity="0.50"/>
+                        <stop offset="1" stop-color="#fff" stop-opacity="0.88"/>
+                    </linearGradient>
+                    <linearGradient id="asBarR" gradientUnits="userSpaceOnUse" x1="57.5" y1="58" x2="33.5" y2="17.5">
+                        <stop offset="0" stop-color="#fff" stop-opacity="0.62"/>
+                        <stop offset="1" stop-color="#fff" stop-opacity="0.72"/>
+                    </linearGradient>
+                    <linearGradient id="asBarH" gradientUnits="userSpaceOnUse" x1="15.5" y1="48" x2="61.5" y2="48">
+                        <stop offset="0" stop-color="#fff" stop-opacity="0.70"/>
+                        <stop offset="1" stop-color="#fff" stop-opacity="0.55"/>
+                    </linearGradient>
                 </defs>
                 <rect width="78" height="78" rx="17.9" fill="url(#asGrad)"/>
-                <g fill="none" stroke="#fff" stroke-opacity="0.69" stroke-width="7.6" stroke-linecap="round">
-                    <path d="M19.5 58 43.5 17.5"/>
-                    <path d="M57.5 58 33.5 17.5"/>
-                    <path d="M15.5 48h46"/>
+                <g fill="none" stroke-width="7.6" stroke-linecap="round">
+                    <path d="M19.5 58 43.5 17.5" stroke="url(#asBarL)"/>
+                    <path d="M57.5 58 33.5 17.5" stroke="url(#asBarR)"/>
+                    <path d="M15.5 48h46"        stroke="url(#asBarH)"/>
                 </g>
             </svg>
           </span>
