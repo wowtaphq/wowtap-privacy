@@ -114,34 +114,50 @@
         .lead .en { color: #999; font-size: 0.85rem; }
 
         /* ── 스토어 버튼 ──
-           바탕을 어둡게 채운 것은 양대 스토어 공식 배지의 관례이기도 하고,
-           흰 바탕에 테두리만 있던 이전 버전이 "누를 수 있는 것"으로 안 읽혔기 때문이다.
-           로고 3종이 전부 유채색이라 어두운 바탕에서 가장 또렷하게 뜬다. */
+           바탕을 채워 "누를 수 있는 것"으로 읽히게 한다(테두리만으로는 안 읽혔다).
+           순검정 대신 파랑기가 도는 짙은 남색 계열 — 흰 배경에 순검정은 대비가 너무 세고,
+           남색은 브랜드 컬러(#2680EB)와 같은 계열이라 페이지에 자연스럽게 얹힌다.
+           위쪽을 살짝 밝힌 세로 그라디언트 + 안쪽 하이라이트로 눌리는 면처럼 보이게 했다. */
         .btn {
             display: flex;
             align-items: center;
             gap: 16px;
             width: 100%;
             min-height: 94px;
-            padding: 18px 24px;
+            padding: 18px 22px;
             margin: 16px 0;
-            border: none;
+            border: 1px solid rgba(255, 255, 255, 0.09);
             border-radius: 18px;
-            background: #111318;
+            background: linear-gradient(180deg, #2B3950 0%, #1B2534 100%);
             text-decoration: none;
             color: #fff;
             text-align: left;
-            box-shadow: 0 2px 10px rgba(16, 24, 40, 0.18);
-            transition: transform .08s ease, background .15s ease, box-shadow .15s ease;
+            box-shadow: 0 4px 14px rgba(20, 30, 48, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+            transition: transform .08s ease, filter .15s ease, box-shadow .15s ease;
         }
-        .btn:active { transform: scale(.98); background: #262a33; box-shadow: 0 1px 4px rgba(16, 24, 40, 0.16); }
+        .btn:active {
+            transform: scale(.98);
+            filter: brightness(.88);
+            box-shadow: 0 2px 6px rgba(20, 30, 48, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        }
         .btn svg { display: block; pointer-events: none; }   /* 클릭 대상은 항상 <a> */
 
+        /* 로고는 고정 폭 슬롯 안에 넣는다 — 글리프 가로폭이 서로 달라도
+           두 버튼의 구분선·글자 시작점이 정확히 같은 자리에 오게 하기 위함. */
         .marks { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
-        .mk-brand { width: 32px; height: 32px; }             /* Apple · Android 로고 */
-        .mk-store { width: 54px; height: 54px; }             /* App Store 아이콘 */
-        .mk-play  { width: 50px; height: 54px; }             /* Play 로고는 세로가 더 길다 (68:74) */
-        .sep { width: 1px; height: 42px; background: rgba(255, 255, 255, 0.20); flex: 0 0 auto; }
+        .slot { display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+        .slot-brand { width: 32px; }
+        .slot-store { width: 54px; }
+
+        /* viewBox를 글리프에 딱 맞춰 잘라야 두 로고가 같은 크기로 보인다.
+           (이전엔 로봇이 viewBox의 33%만 채워, 같은 32px 박스에서 Apple 27.6px 대 로봇 10.4px로 그려졌다)
+           Apple은 세로로 긴 글리프(0.86), 로봇은 가로로 넓은 글리프(1.56)라 높이를 같게 하면
+           로봇이 과하게 커진다. 그래서 가로·세로의 기하평균이 비슷해지도록 맞췄다. */
+        .mk-apple   { width: 24px; height: 28px; }           /* 실제 24.0 × 27.8 */
+        .mk-android { width: 30px; height: 20px; }           /* 실제 30.0 × 19.2 */
+        .mk-store   { width: 54px; height: 54px; }           /* App Store 아이콘 (정사각) */
+        .mk-play    { width: 50px; height: 54px; }           /* Play 로고는 세로가 더 길다 (68:74) */
+        .sep { width: 1px; height: 42px; background: rgba(255, 255, 255, 0.18); flex: 0 0 auto; }
 
         .label { display: flex; flex-direction: column; justify-content: center; line-height: 1.25; }
         .l1 { font-size: 1.32rem; font-weight: 700; letter-spacing: -0.01em; color: #fff; }
@@ -167,30 +183,37 @@
          주소로 아래에서 덮어쓴다 (주소의 단일 출처는 <head>의 APPSTORE / PLAY 상수). -->
     <a class="btn" data-store="app_store" href="https://apps.apple.com/app/apple-store/id6795469163">
         <span class="marks">
-            <!-- Apple 로고 (형태 유지 · 크기만 확대) -->
-            <svg class="mk-brand" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+          <span class="slot slot-brand">
+            <!-- Apple 로고 (형태 그대로 · viewBox만 글리프 경계로 조임: x3.18~21.08 / y0.99~21.72) -->
+            <svg class="mk-apple" viewBox="3.18 0.99 17.90 20.73" fill="#fff" aria-hidden="true">
                 <path d="M16.37 1.43c0 1.14-.42 2.2-1.25 3.03-1 1-2.19 1.58-3.29 1.49-.02-.14-.03-.28-.03-.42 0-1.1.47-2.24 1.3-3.05.42-.42.95-.77 1.57-1.05.62-.27 1.21-.42 1.77-.44 0 .15.01.29.01.44z"/>
                 <path d="M20.75 17.02c-.32.74-.7 1.42-1.14 2.05-.6.86-1.09 1.45-1.47 1.78-.59.54-1.22.82-1.9.84-.49 0-1.07-.14-1.76-.42-.69-.28-1.32-.42-1.9-.42-.6 0-1.25.14-1.95.42-.7.28-1.26.43-1.69.45-.65.03-1.3-.26-1.94-.86-.41-.36-.92-.98-1.53-1.85-.65-.93-1.19-2-1.61-3.23-.45-1.32-.68-2.6-.68-3.84 0-1.42.31-2.64.92-3.67.48-.82 1.12-1.47 1.92-1.94.8-.48 1.67-.73 2.6-.74.52 0 1.19.16 2.03.48.83.32 1.37.48 1.6.48.18 0 .78-.19 1.79-.56.96-.35 1.77-.49 2.43-.44 1.8.15 3.15.86 4.05 2.14-1.61.98-2.4 2.34-2.39 4.09.02 1.36.51 2.5 1.48 3.4.44.42.93.74 1.47.97-.12.34-.24.66-.38.97z"/>
             </svg>
+          </span>
             <span class="sep"></span>
-            <!-- App Store 앱 아이콘 — 참고 이미지 픽셀 실측 (2026-08-12-001)
-                 viewBox 78 = 실측 아이콘 한 변(px). 모서리 R17.4 = 0.223×한변(Apple 표준 스퀘어클 비율).
-                 그라디언트 양 끝은 아이콘 좌측 세로선을 6%~94%로 샘플링해 얻은 값. -->
+          <span class="slot slot-store">
+            <!-- App Store 앱 아이콘 — 참고 이미지 픽셀 실측 (2026-08-12-001, 2차 정정)
+                 viewBox 78 = 실측 아이콘 한 변(px). 아이콘 중심 x=38.5.
+                 모서리 R17.9 — 위에서 8행째 들여쓰기 3px, 12행째 1px 을 원의 방정식에 넣어 역산.
+                 그라디언트 양 끝은 좌측 세로선 6~94% 샘플을 0%/100%로 외삽한 값.
+                 'A' = 위에서 교차하는 획 2개(y17.5에서 시작) + 가로바(y48, x15.5~61.5), 굵기 7.6.
+                 획 굵기·다리 위치는 참고 이미지와 픽셀 대조해 불일치가 최소가 되는 값으로 맞췄다(98.08%).
+                 ⚠️ 1차 작도는 획을 y14까지 올려 꼭지가 3.5 길었다 — 그래서 어색해 보였다. -->
             <svg class="mk-store" viewBox="0 0 78 78" aria-hidden="true">
                 <defs>
                     <linearGradient id="asGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0" stop-color="#66BEFA"/>
-                        <stop offset="1" stop-color="#3264E7"/>
+                        <stop offset="0" stop-color="#6BC4FB"/>
+                        <stop offset="1" stop-color="#3060E6"/>
                     </linearGradient>
                 </defs>
-                <rect width="78" height="78" rx="17.4" fill="url(#asGrad)"/>
-                <!-- 'A' = 위에서 교차하는 획 2개 + 가로바. 획 중심선·굵기 모두 실측값 -->
-                <g fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round">
-                    <path d="M20.5 58 43 14"/>
-                    <path d="M58.5 58 36 14"/>
-                    <path d="M17 48h45"/>
+                <rect width="78" height="78" rx="17.9" fill="url(#asGrad)"/>
+                <g fill="none" stroke="#fff" stroke-width="7.6" stroke-linecap="round">
+                    <path d="M19.5 58 43.5 17.5"/>
+                    <path d="M57.5 58 33.5 17.5"/>
+                    <path d="M15.5 48h46"/>
                 </g>
             </svg>
+          </span>
         </span>
         <span class="label">
             <span class="l1">App Store</span>
@@ -200,9 +223,10 @@
 
     <a class="btn" data-store="google_play" href="https://play.google.com/store/apps/details?id=com.wowtap.app">
         <span class="marks">
-            <!-- Android 로봇 (형태 유지 · 크기만 확대)
+          <span class="slot slot-brand">
+            <!-- Android 로봇 (형태 그대로 · viewBox만 글리프 경계로 조임: x11.8~36.2 / y6.4~22.0)
                  Google Play는 삼성 전용이 아니라 모든 안드로이드 기기의 스토어이므로 삼성 로고를 쓰지 않는다. -->
-            <svg class="mk-brand" viewBox="0 0 48 48" aria-hidden="true">
+            <svg class="mk-android" viewBox="11.8 6.4 24.4 15.6" aria-hidden="true">
                 <path d="M12 22a12 12 0 0 1 24 0z" fill="#3DDC84"/>
                 <g stroke="#3DDC84" stroke-width="1.8" stroke-linecap="round">
                     <path d="M15.4 11.9 12.7 7.3"/>
@@ -211,7 +235,9 @@
                 <circle cx="19.4" cy="16.6" r="1.5" fill="#fff"/>
                 <circle cx="28.6" cy="16.6" r="1.5" fill="#fff"/>
             </svg>
+          </span>
             <span class="sep"></span>
+          <span class="slot slot-store">
             <!-- Google Play 로고 — 참고 이미지 픽셀 실측 (2026-08-12-001)
                  viewBox 68×74 = 실측 로고 크기(px).
                  구조: 점 P(31.5,36.5)에서 교차하는 45° 직선 2개가 4색을 가른다
@@ -238,6 +264,7 @@
                     <path d="M31.5 36.5 -10 78 73 78z"    fill="#EA4335"/>
                 </g>
             </svg>
+          </span>
         </span>
         <span class="label">
             <span class="l1">Google Play</span>
