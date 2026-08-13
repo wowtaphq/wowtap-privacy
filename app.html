@@ -26,10 +26,36 @@
             var APPSTORE = 'https://apps.apple.com/app/apple-store/id6795469163'
                          + '?pt=' + APPLE_PT + '&ct=' + APPLE_CT + '&mt=8';
 
+            // ── 스캔 고유 토큰(scan_id) ──
+            // 이 스캔과 그 뒤의 앱 설치를 잇기 위한 1회용 난수. 개인을 식별하는 값이 아니라
+            // "같은 스캔에서 온 설치인가"만 판별한다.
+            // ⚠️ Android 전용 — Play Install Referrer로만 앱에 전달된다.
+            //    iOS(App Store)는 애플이 설계상 개인 단위 전달 경로를 제공하지 않아 대상이 아니다.
+            var SCAN_KEY = 'wowtap_scan_id';
+            function newScanId() {
+                try {
+                    var a = new Uint8Array(8);
+                    (window.crypto || window.msCrypto).getRandomValues(a);
+                    return Array.prototype.map.call(a, function (b) {
+                        return ('0' + b.toString(16)).slice(-2);
+                    }).join('');
+                } catch (e) {
+                    return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+                }
+            }
+            // 같은 탭에서 재로드되면 같은 토큰을 쓴다(중복 발급 방지). 새 QR 스캔은 새 탭 = 새 토큰.
+            var scanId;
+            try {
+                scanId = sessionStorage.getItem(SCAN_KEY);
+                if (!scanId) { scanId = newScanId(); sessionStorage.setItem(SCAN_KEY, scanId); }
+            } catch (e) { scanId = newScanId(); }
+
             // Play는 referrer 안에 UTM을 실어 보낸다. utm_campaign은 인쇄 차수 구분용
             // (2차 인쇄분이 나오면 v6 등으로 올려 유입을 분리한다).
+            // utm_content = scan_id — 앱이 InstallAttribution.kt에서 읽어 되돌려준다.
             var PLAY = 'https://play.google.com/store/apps/details?id=com.wowtap.app'
-                     + '&referrer=utm_source%3Dpackage_qr%26utm_medium%3Dprint%26utm_campaign%3Dpackage_v5';
+                     + '&referrer=utm_source%3Dpackage_qr%26utm_medium%3Dprint%26utm_campaign%3Dpackage_v5'
+                     + '%26utm_content%3D' + scanId;
 
             var GA_ID = 'G-MYKQYF0CMW';   // GA4 웹 스트림 (Firebase 프로젝트 wowtap-e8fc6 의 속성)
             var WAIT_MS = 1000;           // 아래 "이동 지연" 설명 참조
@@ -84,6 +110,7 @@
             gtag('event', 'qr_landing', {
                 device_type: device,
                 store: isIOS ? 'app_store' : (isAndroid ? 'google_play' : 'none'),
+                scan_id: scanId,   // 앱의 install_attributed 이벤트와 같은 값으로 짝을 맞춘다
                 event_callback: target ? once : undefined
             });
             if (target) setTimeout(once, WAIT_MS);
